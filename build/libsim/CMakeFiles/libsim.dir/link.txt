@@ -1,0 +1,2 @@
+/usr/bin/ar qc liblibsim.a CMakeFiles/libsim.dir/src/simulator.cpp.o
+/opt/homebrew/opt/llvm/bin/llvm-ranlib liblibsim.a
