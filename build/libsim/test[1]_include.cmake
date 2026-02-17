@@ -1,5 +1,0 @@
-if(EXISTS "/Users/nolwendolleans/Documents/Projets perso/Galaxie/simulator_galaxie/simulator_galaxie/build/libsim/test[1]_tests.cmake")
-  include("/Users/nolwendolleans/Documents/Projets perso/Galaxie/simulator_galaxie/simulator_galaxie/build/libsim/test[1]_tests.cmake")
-else()
-  add_test(test_NOT_BUILT test_NOT_BUILT)
-endif()

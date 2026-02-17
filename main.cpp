@@ -8,14 +8,29 @@
 #include <iostream>
 #include "simulator.hpp"
 
-int main() {
+int main(int argc, char* argv[]) {
 	Simulator::galaxy galaxy;
 	
-	galaxy.initialize(5e3, Simulator::IntChoice::Leapfrog);
+	std::size_t size = 1e3;
 	
-	std::string path = "results/Leapfrog_";
-	galaxy.compute(path);
+	if (argc == 2) size = atoi(argv[1]);
+	
+	/*
+	galaxy.initialize(size, Simulator::IntChoice::Euler);
+	std::string path = "results/Euler_";
 	galaxy.compute_parallel(path);
+	
+	galaxy.initialize(size, Simulator::IntChoice::Leapfrog);
+	path = "results/Leapfrog_";
+	galaxy.compute_parallel(path);*/
+	
+	//galaxy.initialize(size, Simulator::IntChoice::Barnes_Hut);
+	std::string path = "results/Barnes_Hut_";
+	//galaxy.compute(path);
+	
+	galaxy.initialize(size, Simulator::IntChoice::Barnes_Hut);
+	std::string path2 = "results/Barnes_Hut_parallel";
+	galaxy.compute_parallel(path2);
 	
 	return EXIT_SUCCESS;
 }

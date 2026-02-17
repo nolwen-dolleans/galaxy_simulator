@@ -1,4 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
+project(galaxy LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # --------------------------------------------------
 # Sources
@@ -10,7 +14,7 @@ add_executable(main
 )
 
 target_compile_options(main PRIVATE
-    $<$<CONFIG:Debug>:-Wall -Wextra -g -fsanitize=address>
+    $<$<CONFIG:Debug>:-Wall -Wextra -g>
     $<$<CONFIG:Release>:-Wall -Wextra -O3 -march=native -DNDEBUG>
 )
 

@@ -1,8 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/Users/nolwendolleans/Documents/Projets perso/Galaxie/simulator_galaxie/simulator_galaxie/build/cmake_install.cmake",
-		"/Users/nolwendolleans/Documents/Projets perso/Galaxie/simulator_galaxie/simulator_galaxie/build/libsim/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
