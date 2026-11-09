@@ -46,3 +46,53 @@ TEST(ArrayTests, ArrayTestsFunctions){
 	
 	EXPECT_EQ(norm, norm2);
 }
+
+TEST(BodyTests, BodyTestsConstructor){
+	Simulator::Body b;
+	for (int i = 0; i<3; ++i) EXPECT_EQ(b.positions[i], 0.0);
+	for (int i = 0; i<3; ++i) EXPECT_EQ(b.velocities[i], 0.0);
+	for (int i = 0; i<3; ++i) EXPECT_EQ(b.force[i], 0.0);
+	EXPECT_EQ(b.mass, 0.0);
+	EXPECT_EQ(b.id, 0);
+}
+
+
+TEST(GalaxyTests, GalaxyTestsInitialize){
+	Simulator::galaxy g;
+	g.initialize(10, Simulator::IntChoice::Barnes_Hut);
+	EXPECT_EQ(g.bodies.size(), 10);
+}
+
+TEST(GalaxyTests, GalaxyMassTests){
+	Simulator::galaxy g;
+	g.initialize(10, Simulator::IntChoice::Barnes_Hut);
+	
+	double total_mass = 0.0;
+	for (const auto& b : g.bodies) {
+		total_mass += b.mass;
+	}
+	
+	EXPECT_GT(total_mass, 0.0);
+}
+
+TEST(GalaxyTests, GalaxyMassConservationTests){
+	Simulator::galaxy g;
+	g.initialize(10, Simulator::IntChoice::Barnes_Hut);
+
+	double total_mass = 0.0;
+	for (const auto& b : g.bodies) {
+		total_mass += b.mass;
+	}
+	
+	std::string path = "test";
+	g.compute_parallel(path);
+
+	double total_mass2 = 0.0;
+	for (const auto& b : g.bodies) {
+		total_mass2 += b.mass;
+	}
+
+	EXPECT_DOUBLE_EQ(total_mass, total_mass2);
+
+
+}

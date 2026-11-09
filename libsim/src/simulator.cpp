@@ -9,7 +9,7 @@
 
 
 const real M_disc 	= 5e10; 	//Solar mass
-const real M_halo 	= 1e12; 	//Solar mass
+	  real M_halo 	= 0; 		//Solar mass
 
 const real R_d 		= 3e3;		//parcecs
 const real R_max 	= 1.5e4;	//parcecs
@@ -17,12 +17,12 @@ const real R_z 		= 3e2;		//parcecs
 
 const real R_s 		= 2e4;		//parcecs
 const real c 		= 10.0;
-real rho_0 			= 0.0;
+	  real rho_0 	= 0.0;
 
-const real V_c		= 225;		//percecs/Myr
+const real V_c		= 157;		//percecs/Myr
 
-real dt				= 0;		//Myr
-real end			= 0;		//Myr
+const real dt				= 0.2;		//Myr
+const real end				= 1000;		//Myr
 
 
 real& Simulator::Array::operator[](const std::size_t i){
@@ -131,10 +131,8 @@ static inline real gaussian(real sigma){
 void Simulator::compute_csts(){
 	real T_orbite = (R_max - R_d)/2 * 2 * M_PI / V_c;
 	
-	end = 10*T_orbite;
-	dt = end / N;
 	
-	
+	M_halo = 1/0.3*M_disc;
 	real a = log(c+1) - c/(c+1);
 	rho_0 = M_halo/(4*M_PI*R_s*R_s*R_s*a);
 }
@@ -151,7 +149,9 @@ void Simulator::init_position(Simulator::Array& p0){
 	real u3 = drand48();
 	real theta = 2*M_PI*u2;
 	
-	real r_circ = R_d * sqrt(-2.0 * log(1.0 - u1));
+	real a = R_d * sqrt(-2.0 * log(1.0 - u1));
+	real e = sqrt(3.0/4.0);
+	real r_circ = a*(1-e*e)/(1+e*cos(theta));
 	r_circ = std::min(r_circ, R_max);
 	
 	real x = r_circ*cos(theta);
@@ -177,8 +177,8 @@ void Simulator::init_velocity(real x, real y, real z, Simulator::Array& v0){
 	real inv_r = 1.0 / (r + eps2);
 	
 	real M_discr = mass_disc(r);
-	real M_halor = mass_halo(r);
-	real M_total = M_discr + M_halor;
+	// real M_halor = mass_halo(r);
+	real M_total = M_discr;
 	
 	real v_circ = sqrt(Simulator::G * M_total / r);
 	real sigma_r = 0.25 * v_circ;
@@ -189,7 +189,6 @@ void Simulator::init_velocity(real x, real y, real z, Simulator::Array& v0){
 	v0[0] = (x*v_r-y*v_phi)*inv_r;
 	v0[1] = (y*v_r+x*v_phi)*inv_r;
 	v0[2] = gaussian(0.5*sigma_r);
-	v0 = {0.0,0.0,0.0};
 	
 }
 
@@ -338,9 +337,9 @@ void Simulator::galaxy::compute_parallel(const std::string& path){
 		file << "\n";
 		
 		integrator->step_parallel(x, y, z, vx, vy, vz, fx, fy, fz, m, dt, Nbodies);
-		/*
-		std::vector<real> energy;
-		compute_energy_parallel(x, y, z, vx, vy, vz, m, Nbodies, &energy);*/
+		
+		//std::vector<real> energy;
+		//compute_energy_parallel(x, y, z, vx, vy, vz, m, Nbodies, &energy);
 		
 		
 		t += dt;
@@ -491,7 +490,7 @@ void Simulator::insert_body(OctreeNode* root, Body* b) {
 
 	while (true) {
 		// Si c'est une feuille
-		if (node->children[0] == nullptr) {
+		if (node->is_leaf) {
 			// Si on peut stocker le corps dans cette feuille
 			if (node->body_count < MAXBODY_LEAF) {
 				node->bodies[node->body_count++] = b;
@@ -538,7 +537,7 @@ void Simulator::compute_mass(Simulator::OctreeNode* node) {
 	
 	node->mass = 0.0;
 	node->com = {0.0, 0.0, 0.0};
-	if (node->children[0] == NULL && node->body_count > 0) {
+	if (node->is_leaf && node->body_count > 0) {
 		for (int i = 0; i<node->body_count; ++i) {
 			node->mass += node->bodies[i]->mass;
 			node->com += node->bodies[i]->positions * node->bodies[i]->mass;
@@ -570,7 +569,7 @@ void Simulator::compute_force_BH(OctreeNode* node, Body* b, real theta) {
 	real dist = sqrt(dist2);
 
 	// Cas feuille : calcul exact
-	if (node->children[0] == NULL) {
+	if (node->is_leaf) {
 		for (int i = 0; i < node->body_count; ++i) {
 			Body* other = node->bodies[i];
 			if (other == b) continue;
@@ -645,6 +644,7 @@ int Simulator::get_octant_t(OctreeNode_t* node, real x, real y, real z) {
 Simulator::OctreeNode_t* Simulator::create_child_t(OctreeNode_t* parent, int oct) {
 	OctreeNode_t* c = new OctreeNode_t{};
 	real hs = parent->half_size / 2.0;
+	parent->is_leaf = false;
 
 	c->center[0] = parent->center[0] + hs * ((oct & 1) ? 1 : -1);
 	c->center[1] = parent->center[1] + hs * ((oct & 2) ? 1 : -1);
@@ -698,7 +698,7 @@ void Simulator::insert_body_t(OctreeNode_t* root, size_t id_body, real* x, real*
 		assert(node != nullptr); // sécurité
 
 		// Feuille
-		if (node->children[0] == nullptr) {
+		if (node->is_leaf) {
 			if (node->body_count < MAXBODY_LEAF || depth >= MAXDEPTH) {
 				// Insérer le corps ici
 				if (node->body_count < MAXBODY_LEAF) {
@@ -761,7 +761,7 @@ void Simulator::compute_mass_t(Simulator::OctreeNode_t* node, real * x, real * y
 	
 	node->mass = 0.0;
 	node->com = {0.0, 0.0, 0.0};
-	if (node->children[0] == NULL && node->body_count > 0) {
+	if (node->is_leaf && node->body_count > 0) {
 		for (int i = 0; i<node->body_count; ++i) {
 			node->mass += m[node->index[i]];
 			node->com += {x[node->index[i]]*m[node->index[i]], y[node->index[i]]*m[node->index[i]], z[node->index[i]]*m[node->index[i]]};
@@ -799,7 +799,7 @@ void Simulator::compute_force_BH_t(OctreeNode_t* node, real * x, real * y, real 
 	real dist = sqrt(dist2);
 
 	// Cas feuille : calcul exact
-	if (node->children[0] == NULL) {
+	if (node->is_leaf) {
 		for (int i = 0; i < node->body_count; ++i) {
 			size_t other = node->index[i];
 			if (other == id_body) continue;
@@ -1008,10 +1008,10 @@ void Simulator::Barnes_Hut::step_parallel(real* x, real* y, real* z, real* vx, r
             fy[i] = 0.0;
             fz[i] = 0.0;
             compute_force_BH_t(tree, x, y, z, fx, fy, fz, m, i, thta);
-			real factor_DM = computeHaloAcceleration(x, y, z, i);
-			fx[i] += -factor_DM * x[i] * m[i];
-			fy[i] += -factor_DM * y[i] * m[i];
-			fz[i] += -factor_DM * z[i] * m[i];
+			// real factor_DM = computeHaloAcceleration(x, y, z, i);
+			// fx[i] += -factor_DM * x[i] * m[i];
+			// fy[i] += -factor_DM * y[i] * m[i];
+			// fz[i] += -factor_DM * z[i] * m[i];
         }
 
         // Free tree once
@@ -1088,10 +1088,10 @@ void Simulator::Barnes_Hut::step_parallel(real* x, real* y, real* z, real* vx, r
             fy[i] = 0.0;
             fz[i] = 0.0;
             compute_force_BH_t(tree, x, y, z, fx, fy, fz, m, i, thta);
-			real factor_DM = computeHaloAcceleration(x, y, z, i);
-			fx[i] += -factor_DM * x[i] * m[i];
-			fy[i] += -factor_DM * y[i] * m[i];
-			fz[i] += -factor_DM * z[i] * m[i];
+			// real factor_DM = computeHaloAcceleration(x, y, z, i);
+			// fx[i] += -factor_DM * x[i] * m[i];
+			// fy[i] += -factor_DM * y[i] * m[i];
+			// fz[i] += -factor_DM * z[i] * m[i];
         }
 
         // 4. Kick final

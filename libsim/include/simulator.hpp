@@ -26,7 +26,7 @@
 #include <cassert>
 #include <iomanip>
 
-#define eps2 1e-3
+#define eps2 1e-6
 #define MAXDEPTH 13
 #define MAXBODY_LEAF 8
 #define N 1000
@@ -40,7 +40,7 @@
 
 namespace Simulator {
 
-const real G = 5e-3; // constante de Gauss (parsecs, Myrs)
+const real G = 4.4985e-3; // constante gravitationnelle (pc^3 / (Msun * Myr^2))
 
 
 class Array{
@@ -81,8 +81,8 @@ struct Body{
 	Array positions;
 	Array velocities;
 	Array force;
-	real mass;
-	std::size_t id;
+	real mass = 0.0;
+	std::size_t id = 0.0;
 	void print() const;
 };
 
@@ -134,6 +134,7 @@ struct OctreeNode {
 
 	struct OctreeNode* children[8];
 	Body* bodies[MAXBODY_LEAF];            // NULL ou 1 particule
+	bool is_leaf = true;		 // Indique si le noeud est une feuille
 	
 	int body_count;
 };
@@ -172,6 +173,7 @@ struct OctreeNode_t {
 
 	struct OctreeNode_t* children[8];
 	size_t index[MAXBODY_LEAF];
+	bool is_leaf = true;		 // Indique si le noeud est une feuille
 	
 	size_t body_count;
 };
