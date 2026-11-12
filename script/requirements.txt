@@ -1,0 +1,5 @@
+numpy                
+vispy 
+matplotlib   
+tqdm
+PyQt6     
