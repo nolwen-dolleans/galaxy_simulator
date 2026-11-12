@@ -26,7 +26,7 @@
 #include <cassert>
 #include <iomanip>
 
-#define eps2 1e-6
+#define eps2 100
 #define MAXDEPTH 13
 #define MAXBODY_LEAF 8
 #define N 1000
@@ -98,6 +98,7 @@ void compute_csts();
 void init_mass(size_t nBodies, real &m);
 void init_position(Simulator::Array& p0);
 void init_velocity(real x, real y, real z, Simulator::Array& v0);
+void init_velocity(const real *x, const real *y, const real *z, real *vx, real *vy, real *vz, const real *fx, const real *fy, const real *fz, const real *m, const size_t NBodies);
 
 void compute_force(std::vector<Body>& bodies);
 void compute_force_parallel(std::vector<Body>& bodies);

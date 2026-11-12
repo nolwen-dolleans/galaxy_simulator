@@ -144,22 +144,13 @@ void Simulator::init_mass(size_t nBodies, real &m){
 
 
 void Simulator::init_position(Simulator::Array& p0){
-	real u1 = drand48();
-	real u2 = drand48();
-	real u3 = drand48();
-	real theta = 2*M_PI*u2;
-	
-	real a = R_d * sqrt(-2.0 * log(1.0 - u1));
-	real e = sqrt(3.0/4.0);
-	real r_circ = a*(1-e*e)/(1+e*cos(theta));
-	r_circ = std::min(r_circ, R_max);
-	
-	real x = r_circ*cos(theta);
-	real y = r_circ*sin(theta);
-	real z = gaussian(R_z);
-	
-	p0 = {x, y, z};
-	
+	real R;
+	do {
+		R = -R_d * log((1.0 - drand48()) * (1.0 - drand48()));
+	} while (R > R_max);
+
+	real theta = 2*M_PI*drand48();
+	p0 = {R*cos(theta), R*sin(theta), gaussian(R_z)};
 }
 
 static inline real mass_disc(real r){
@@ -177,7 +168,7 @@ void Simulator::init_velocity(real x, real y, real z, Simulator::Array& v0){
 	real inv_r = 1.0 / (r + eps2);
 	
 	real M_discr = mass_disc(r);
-	// real M_halor = mass_halo(r);
+	//real M_halor = mass_halo(r);
 	real M_total = M_discr;
 	
 	real v_circ = sqrt(Simulator::G * M_total / r);
@@ -191,6 +182,23 @@ void Simulator::init_velocity(real x, real y, real z, Simulator::Array& v0){
 	v0[2] = gaussian(0.5*sigma_r);
 	
 }
+
+void Simulator::init_velocity(const real *x, const real *y, const real *z, real *vx, real *vy, real *vz, const real *fx, const real *fy, const real *fz, const real *m, const size_t Nbodies){
+
+	real inv_R, ar, Fr, v;
+	#pragma omp parallel for private(inv_R, ar, Fr, v)
+	for(int i = 0; i<Nbodies; ++i){
+		inv_R = 1/sqrt(x[i]*x[i]+y[i]*y[i]+eps2);
+		Fr = (fx[i]*x[i] + fy[i]*y[i]) * inv_R;
+		v  = sqrt(std::max(0.0, -Fr / inv_R / m[i]));   
+		
+		vx[i] = -y[i]*inv_R * v;
+		vy[i] =  x[i]*inv_R * v;
+
+		vz[i] = gaussian(0.05*v);
+	}
+}
+
 
 
 void Simulator::galaxy::initialize(std::size_t i, const IntChoice& choice){
@@ -207,8 +215,8 @@ void Simulator::galaxy::initialize(std::size_t i, const IntChoice& choice){
 	for (std::size_t j = 1; j < i; ++j) {
 		init_mass(i, bodies[j].mass);
 		init_position(bodies[j].positions);
-		init_velocity(bodies[j].positions[0], bodies[j].positions[1], bodies[j].positions[2], bodies[j].velocities);
-		bodies[0].id = j;
+		// init_velocity(bodies[j].positions[0], bodies[j].positions[1], bodies[j].positions[2], bodies[j].velocities);
+		bodies[j].id = j;
 	}
 
 	switch (choice) {
@@ -327,7 +335,43 @@ void Simulator::galaxy::compute_parallel(const std::string& path){
 
 		m[i]  = bodies[i].mass;
 	}
-	
+	real thta = 0.75;
+	OctreeNode_t* tree = nullptr;
+
+	// Parallel region over the whole step
+	#pragma omp parallel shared(tree)
+	{
+	// Build tree once
+		#pragma omp single
+		{
+			if (tree) { free_tree_t(tree); tree = nullptr; }
+			tree = build_octree_t(x, y, z, m, Nbodies);
+		}
+		#pragma omp barrier
+
+		// 1. Forces at t
+		#pragma omp for schedule(static)
+		for (size_t i = 0; i < Nbodies; ++i) {
+			fx[i] = 0.0;
+			fy[i] = 0.0;
+			fz[i] = 0.0;
+			compute_force_BH_t(tree, x, y, z, fx, fy, fz, m, i, thta);
+			// real factor_DM = computeHaloAcceleration(x, y, z, i);
+			// fx[i] += -factor_DM * x[i] * m[i];
+			// fy[i] += -factor_DM * y[i] * m[i];
+			// fz[i] += -factor_DM * z[i] * m[i];
+		}
+
+        // Free tree once
+        #pragma omp single
+        {
+            free_tree_t(tree);
+            tree = nullptr;
+        }
+	}
+
+	init_velocity(x, y, z, vx, vy, vz, fx, fy, fz, m, Nbodies);
+
 	while (t<end) {
 		std::cout << "--- Compute Simulator at " << std::fixed << std::setprecision(1) << t/end*100.0f << "% ---\r";
 		std::cout.flush();
@@ -335,7 +379,7 @@ void Simulator::galaxy::compute_parallel(const std::string& path){
 			file << x[i] << "," << y[i] << "," << z[i] << ",";
 		}
 		file << "\n";
-		
+
 		integrator->step_parallel(x, y, z, vx, vy, vz, fx, fy, fz, m, dt, Nbodies);
 		
 		//std::vector<real> energy;
@@ -756,6 +800,7 @@ void Simulator::insert_body_t(OctreeNode_t* root, size_t id_body, real* x, real*
 		}
 	}
 }
+
 void Simulator::compute_mass_t(Simulator::OctreeNode_t* node, real * x, real * y, real * z, real * m) {
 	if (!node) return;
 	
@@ -993,34 +1038,6 @@ void Simulator::Barnes_Hut::step_parallel(real* x, real* y, real* z, real* vx, r
     // Parallel region over the whole step
     #pragma omp parallel shared(tree)
     {
-		// Build tree once
-        #pragma omp single
-        {
-            if (tree) { free_tree_t(tree); tree = nullptr; }
-            tree = build_octree_t(x, y, z, m, n);
-        }
-        #pragma omp barrier
-
-        // 1. Forces at t
-        #pragma omp for schedule(static)
-        for (size_t i = 0; i < n; ++i) {
-            fx[i] = 0.0;
-            fy[i] = 0.0;
-            fz[i] = 0.0;
-            compute_force_BH_t(tree, x, y, z, fx, fy, fz, m, i, thta);
-			// real factor_DM = computeHaloAcceleration(x, y, z, i);
-			// fx[i] += -factor_DM * x[i] * m[i];
-			// fy[i] += -factor_DM * y[i] * m[i];
-			// fz[i] += -factor_DM * z[i] * m[i];
-        }
-
-        // Free tree once
-        #pragma omp single
-        {
-            free_tree_t(tree);
-            tree = nullptr;
-        }
-        #pragma omp barrier
 
         // 2. Kick + Drift
         const size_t vecEnd = (n >= 2) ? (n - (n % 2)) : 0;
