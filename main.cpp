@@ -24,12 +24,12 @@ int main(int argc, char* argv[]) {
 	path = "results/Leapfrog_";
 	galaxy.compute_parallel(path);*/
 	
-	//galaxy.initialize(size, Simulator::IntChoice::Barnes_Hut);
-	std::string path = "results/Barnes_Hut_";
-	//galaxy.compute(path);
+	// galaxy.initialize(size, Simulator::IntChoice::Barnes_Hut);
+	// std::string path = "results/";
+	// galaxy.compute(path);
 	
 	galaxy.initialize(size, Simulator::IntChoice::Barnes_Hut);
-	std::string path2 = "results/Barnes_Hut_parallel";
+	std::string path2 = "results/data.npy";
 	galaxy.compute_parallel(path2);
 	
 	return EXIT_SUCCESS;

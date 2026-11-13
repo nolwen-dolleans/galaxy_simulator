@@ -11,7 +11,7 @@
 const real M_disc 	= 5e10; 	//Solar mass
 	  real M_halo 	= 0; 		//Solar mass
 
-const real R_d 		= 3e3;		//parcecs
+const real R_d 		= 3e4;		//parcecs
 const real R_max 	= 1.5e4;	//parcecs
 const real R_z 		= 3e2;		//parcecs
 
@@ -237,7 +237,7 @@ void Simulator::galaxy::compute(const std::string& path){
 	std::cout << "--- Simulator started ---" << std::endl;
 	Chrono timer;
 	timer.start();
-	std::ofstream file_(path+"stars_data.csv", std::ios::trunc);
+	std::ofstream file_(path);
 	file_.close();
 	std::ofstream file2(path+"stars_data.csv");
 	file2 << "temps,id,x,y,z,vx,vy,vz,mass;\n";
@@ -288,21 +288,7 @@ void Simulator::galaxy::compute_parallel(const std::string& path){
 	std::cout << "--- Simulator started ---" << std::endl;
 	Chrono timer;
 	timer.start();
-	std::ofstream file_(path+"stars_data", std::ios::trunc);
-	file_.close();
-	std::ofstream file2(path+"stars_data");
-	file2 << Nbodies << "\n";
-	file2.close();
 	
-	std::ofstream file3(path+"energy", std::ios::trunc);
-	file3.close();
-	std::ofstream file4(path+"energy");
-	file4 << "temps,T,V,E;\n";
-	file4.close();
-	
-	real t = 0;
-	std::ofstream file(path+"stars_data", std::ios::app);
-	std::ofstream energy_file(path+"energy", std::ios::app);
 	
 	
 	// --- Allocation ---
@@ -372,13 +358,16 @@ void Simulator::galaxy::compute_parallel(const std::string& path){
 
 	init_velocity(x, y, z, vx, vy, vz, fx, fy, fz, m, Nbodies);
 
+	std::ofstream f(path, std::ios::binary | std::ios::trunc);
+	my_ios::npy_write_header<real>(f, 0, Nbodies);          // en-tête provisoire
+
+	std::size_t steps = 0;
+	float t = 0;
+
 	while (t<end) {
 		std::cout << "--- Compute Simulator at " << std::fixed << std::setprecision(1) << t/end*100.0f << "% ---\r";
 		std::cout.flush();
-		for (std::size_t i = 0; i<Nbodies; ++i) {
-			file << x[i] << "," << y[i] << "," << z[i] << ",";
-		}
-		file << "\n";
+		my_ios::npy_append_step(f, x, y, z, Nbodies);
 
 		integrator->step_parallel(x, y, z, vx, vy, vz, fx, fy, fz, m, dt, Nbodies);
 		
@@ -387,27 +376,12 @@ void Simulator::galaxy::compute_parallel(const std::string& path){
 		
 		
 		t += dt;
+		steps += 1;
 	}
 	
-	for (size_t i = 0; i < Nbodies; ++i) {
-		bodies[i].positions[0]  =  x[i];
-		bodies[i].positions[1]  =  y[i];
-		bodies[i].positions[2]  =  z[i];
-		
-		bodies[i].velocities[0] = vx[i];
-		bodies[i].velocities[1] = vy[i];
-		bodies[i].velocities[2] = vz[i];
-		
-		bodies[i].force[0]	    = fx[i];
-		bodies[i].force[1]	    = fy[i];
-		bodies[i].force[2]	    = fz[i];
-
-
-		bodies[i].mass = m[i];
-	}
+	my_ios::npy_write_header<real>(f, steps, Nbodies);
 	
-	file.close();
-	energy_file.close();
+	f.close();
 	timer.stop();
 	timer.print();
 	
