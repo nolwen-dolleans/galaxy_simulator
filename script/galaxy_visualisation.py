@@ -8,9 +8,8 @@ from tqdm import tqdm
 
 
 def load_data(file_path = "results/Barnes_Hut_parallelstars_data"):
-    if os.path.isfile("data.npy"):
-        return np.load("data.npy")
-        
+    
+    """
     size = os.path.getsize(file_path)
     with open(file_path, "rb") as f, tqdm(total=size, unit="B", unit_scale=True, desc="Load Data: ") as bar:
         header = f.readline()
@@ -24,11 +23,15 @@ def load_data(file_path = "results/Barnes_Hut_parallelstars_data"):
     results = np.stack(data).reshape(-1, n, 3)
     
     np.save("data.npy", results)
+    """
+    raw = np.load(file_path, mmap_mode='r')   # (T, 3, N) : blocs x, y, z écrits par le C++
+    results = raw.transpose(0, 2, 1)          # (T, N, 3) : vue, sans copie
+    print(results.shape)
     return results
 
 
 
-path = "results/Barnes_Hut_parallelstars_data"
+path = "results/data.npy"
 data = load_data(path)
 
 

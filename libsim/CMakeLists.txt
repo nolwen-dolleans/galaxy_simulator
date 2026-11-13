@@ -7,6 +7,7 @@ project(libsim LANGUAGES CXX)
 add_library(libsim
     src/simulator.cpp
     include/simulator.hpp
+    include/io.hpp
 )
 
 target_include_directories(libsim

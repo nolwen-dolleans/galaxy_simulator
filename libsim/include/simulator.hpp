@@ -26,6 +26,8 @@
 #include <cassert>
 #include <iomanip>
 
+#include "io.hpp"
+
 #define eps2 100
 #define MAXDEPTH 13
 #define MAXBODY_LEAF 8
